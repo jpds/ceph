@@ -206,6 +206,9 @@ public:
 
   void dump(ostream& ss) const;
 
+  void dump_osd_perf_stats(Formatter *f) const;
+  void print_osd_perf_stats(std::ostream *ss) const;
+
   void recovery_summary(Formatter *f, ostream *out) const;
   void dump_osd_perf_stats(Formatter *f) const;
   void print_osd_perf_stats(std::ostream *ss) const;

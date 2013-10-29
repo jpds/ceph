@@ -79,4 +79,8 @@ noinst_HEADERS += \
 	include/rbd/librbd.h \
 	include/rbd/librbd.hpp\
 	include/util.h\
-	include/stat.h
+	include/stat.h\
+	include/memory.h \
+	include/hash_namespace.h \
+	include/unordered_map.h \
+	include/unordered_set.h

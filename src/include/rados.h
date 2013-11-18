@@ -161,6 +161,7 @@ extern const char *ceph_osd_state_name(int s);
 #define CEPH_OSD_OP_TYPE_EXEC  0x0400
 #define CEPH_OSD_OP_TYPE_PG    0x0500
 #define CEPH_OSD_OP_TYPE_MULTI 0x0600 /* multiobject */
+#define CEPH_OSD_OP_TYPE_OIS   0x0700 /* object instruction set */
 
 enum {
 	/** data **/
@@ -266,6 +267,9 @@ enum {
 	/** pg **/
 	CEPH_OSD_OP_PGLS      = CEPH_OSD_OP_MODE_RD | CEPH_OSD_OP_TYPE_PG | 1,
 	CEPH_OSD_OP_PGLS_FILTER = CEPH_OSD_OP_MODE_RD | CEPH_OSD_OP_TYPE_PG | 2,
+
+  /** object operation instruction set **/
+  CEPH_OSD_OP_OIS_INSTRUCTION = CEPH_OSD_OP_MODE_RD | CEPH_OSD_OP_TYPE_OIS | 1,
 };
 
 static inline int ceph_osd_op_type_lock(int op)
@@ -366,6 +370,14 @@ enum {
 	CEPH_OSD_CMPXATTR_MODE_U64    = 2
 };
 
+enum {
+  CEPH_OSD_OIS_OP_RETURN = 1,  // return const int
+  CEPH_OSD_OIS_OP_JGE    = 2,  // jump if >=
+  CEPH_OSD_OIS_OP_JEQ    = 3,  // jump if ==
+  CEPH_OSD_OIS_OP_LABEL  = 4,  // jump if ==
+  CEPH_OSD_OIS_OP_RETURN_REG = 5  // return reg val.. this is dumb
+};
+
 /*
  * an individual object operation.  each may be accompanied by some data
  * payload
@@ -418,6 +430,9 @@ struct ceph_osd_op {
 			__le64 snapid;
 			__le64 src_version;
 		} __attribute__ ((packed)) copy_from;
+		struct {
+			__u8 opcode;
+		} __attribute__ ((packed)) ois;
 	};
 	__le32 payload_len;
 } __attribute__ ((packed));

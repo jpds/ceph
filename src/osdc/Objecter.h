@@ -564,6 +564,40 @@ struct ObjectOperation {
     }
   }
 
+  void ois_ret(int val) {
+    OSDOp &op = add_op(CEPH_OSD_OP_OIS_INSTRUCTION);
+    op.op.ois.opcode = CEPH_OSD_OIS_OP_RETURN;
+    ::encode(val, op.indata);
+  }
+
+  void ois_ret(std::string& reg) {
+    OSDOp &op = add_op(CEPH_OSD_OP_OIS_INSTRUCTION);
+    op.op.ois.opcode = CEPH_OSD_OIS_OP_RETURN_REG;
+    ::encode(reg, op.indata);
+  }
+
+  void ois_jge(std::string& reg, int val, std::string& label) {
+    OSDOp &op = add_op(CEPH_OSD_OP_OIS_INSTRUCTION);
+    op.op.ois.opcode = CEPH_OSD_OIS_OP_JGE;
+    ::encode(reg, op.indata);
+    ::encode(val, op.indata);
+    ::encode(label, op.indata);
+  }
+
+  void ois_jeq(std::string& reg, int val, std::string& label) {
+    OSDOp &op = add_op(CEPH_OSD_OP_OIS_INSTRUCTION);
+    op.op.ois.opcode = CEPH_OSD_OIS_OP_JEQ;
+    ::encode(reg, op.indata);
+    ::encode(val, op.indata);
+    ::encode(label, op.indata);
+  }
+
+  void ois_label(std::string& label) {
+    OSDOp &op = add_op(CEPH_OSD_OP_OIS_INSTRUCTION);
+    op.op.ois.opcode = CEPH_OSD_OIS_OP_LABEL;
+    ::encode(label, op.indata);
+  }
+
   struct C_ObjectOperation_copyget : public Context {
     bufferlist bl;
     object_copy_cursor_t *cursor;

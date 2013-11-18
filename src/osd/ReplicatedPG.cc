@@ -2394,6 +2394,29 @@ int ReplicatedPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
 
   bool first_read = true;
 
+  /* OIS: named registers */
+  std::map<std::string, int> ois_reg_int;
+
+  /* OIS: skipping instructions until label? */
+  bool ois_finding_label = false;
+  std::string ois_label;
+
+  /* OIS: short circuit exit */
+  bool ois_returned = false;
+
+  /* OIS: is there some OIS in there? If so, let's let failures proceed so we
+   * can examine their return values
+   */
+  bool ois_aware = false;
+  for (vector<OSDOp>::iterator p = ops.begin(); p != ops.end(); ++p) {
+    OSDOp& osd_op = *p;
+    ceph_osd_op& op = osd_op.op;
+    if (op.op == CEPH_OSD_OP_OIS_INSTRUCTION) {
+      ois_aware = true;
+      break;
+    }
+  }
+
   ObjectStore::Transaction& t = ctx->op_t;
 
   dout(10) << "do_osd_op " << soid << " " << ops << dendl;
@@ -2403,6 +2426,11 @@ int ReplicatedPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
     ceph_osd_op& op = osd_op.op;
  
     dout(10) << "do_osd_op  " << osd_op << dendl;
+
+    // OIS: if we are looking for a label, skip any non-label ops
+    if (ois_finding_label && op.op == CEPH_OSD_OP_OIS_INSTRUCTION &&
+        op.ois.opcode != CEPH_OSD_OIS_OP_LABEL)
+      continue;
 
     bufferlist::iterator bp = osd_op.indata.begin();
 
@@ -2800,6 +2828,126 @@ int ReplicatedPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
 	dout(10) << "comparison returned true" << dendl;
       }
       break;
+
+    case CEPH_OSD_OP_OIS_INSTRUCTION:
+    {
+      int opcode = op.ois.opcode;
+      switch (opcode) {
+        case CEPH_OSD_OIS_OP_RETURN:
+        {
+          int ret;
+          try {
+            ::decode(ret, bp);
+          } catch (buffer::error& err) {
+            dout(10) << "ois op return cant decode input" << dendl;
+            result = -EINVAL;
+            break;
+          }
+          result = ret;
+          ois_returned = true;
+          dout(10) << "ois: op_return: result=" << ret << dendl;
+          break;
+        }
+
+        case CEPH_OSD_OIS_OP_RETURN_REG:
+        {
+          std::string reg;
+          try {
+            ::decode(reg, bp);
+          } catch (buffer::error& err) {
+            dout(10) << "ois op return_reg cant decode input" << dendl;
+            result = -EINVAL;
+            break;
+          }
+          result = ois_reg_int[reg];
+          ois_returned = true;
+          dout(10) << "ois: op_return_reg: reg=" << reg << " result=" << result << dendl;
+          break;
+        }
+
+        case CEPH_OSD_OIS_OP_JGE:
+        {
+          std::string reg;
+          std::string label;
+          int val;
+
+          try {
+            ::decode(reg, bp);
+            ::decode(val, bp);
+            ::decode(label, bp);
+          } catch (buffer::error& err) {
+            dout(10) << "ois op jge cant decode input" << dendl;
+            result = -EINVAL;
+            break;
+          }
+
+          int reg_val = ois_reg_int[reg];
+          if (reg_val >= val) {
+            ois_finding_label = true;
+            ois_label = label;
+          }
+
+          dout(10) << "ois: op_jge: reg=" << reg << " reg_val=" << reg_val << " >= val=" << val << " label=" << label << dendl;
+
+          break;
+        }
+
+        case CEPH_OSD_OIS_OP_JEQ:
+        {
+          std::string reg;
+          std::string label;
+          int val;
+
+          try {
+            ::decode(reg, bp);
+            ::decode(val, bp);
+            ::decode(label, bp);
+          } catch (buffer::error& err) {
+            dout(10) << "ois op jge cant decode input" << dendl;
+            result = -EINVAL;
+            break;
+          }
+
+          int reg_val = ois_reg_int[reg];
+          if (reg_val == val) {
+            ois_finding_label = true;
+            ois_label = label;
+          }
+
+          dout(10) << "ois: op_jeq: reg=" << reg << " reg_val=" << reg_val << " == val=" << val << " label=" << label << dendl;
+
+          break;
+        }
+
+        case CEPH_OSD_OIS_OP_LABEL:
+        {
+          std::string label;
+
+          try {
+            ::decode(label, bp);
+          } catch (buffer::error& err) {
+            dout(10) << "ois op label cant decode input" << dendl;
+            result = -EINVAL;
+            break;
+          }
+
+          dout(10) << "ois: op_label: label=" << label << " finding=" << ois_finding_label << " finding_label=" << ois_label << dendl;
+
+          // stop skipping operations if we found the matching label
+          if (ois_finding_label && ois_label == label) {
+            ois_finding_label = false;
+            ois_label = "";
+          }
+
+          break;
+        }
+
+        default:
+          dout(0) << "ois unknown opcode" << dendl;
+          result = -EINVAL;
+      }
+    }
+    break;
 
     case CEPH_OSD_OP_ASSERT_VER:
       ++ctx->num_read;
@@ -3691,8 +3839,14 @@ int ReplicatedPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
     if (result < 0 && (op.flags & CEPH_OSD_OP_FLAG_FAILOK))
       result = 0;
 
-    if (result < 0)
+    if (result < 0 && !ois_aware)
       break;
+
+    if (ois_returned)
+      break;
+
+    ois_reg_int["ret"] = result;
+    dout(10) << "ois: ret reg = " << result << dendl;
   }
   return result;
 }

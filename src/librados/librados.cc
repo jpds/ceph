@@ -253,6 +253,36 @@ void librados::ObjectOperation::omap_cmp(
   o->omap_cmp(assertions, prval);
 }
 
+void librados::ObjectOperation::ois_ret(int ret)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  o->ois_ret(ret);
+}
+
+void librados::ObjectOperation::ois_ret(std::string reg)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  o->ois_ret(reg);
+}
+
+void librados::ObjectOperation::ois_jge(std::string reg, int val, std::string label)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  o->ois_jge(reg, val, label);
+}
+
+void librados::ObjectOperation::ois_jeq(std::string reg, int val, std::string label)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  o->ois_jeq(reg, val, label);
+}
+
+void librados::ObjectOperation::ois_label(std::string label)
+{
+  ::ObjectOperation *o = (::ObjectOperation *)impl;
+  o->ois_label(label);
+}
+
 void librados::ObjectReadOperation::list_watchers(
   list<obj_watch_t> *out_watchers,
   int *prval)

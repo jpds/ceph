@@ -202,6 +202,15 @@ namespace librados
       const std::map<std::string, std::pair<bufferlist, int> > &assertions,
       int *prval);
 
+    /*
+     * Object Operation Instruction Set (OIS)
+     */
+    void ois_ret(int val);
+    void ois_ret(std::string reg);
+    void ois_jge(std::string reg, int val, std::string label);
+    void ois_jeq(std::string reg, int val, std::string label);
+    void ois_label(std::string label);
+
   protected:
     ObjectOperationImpl *impl;
     ObjectOperation(const ObjectOperation& rhs);

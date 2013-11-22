@@ -345,7 +345,7 @@
    /// Rollback reset attrs
    virtual void rollback_setattrs(
      const hobject_t &hoid,
-     map<string, bufferlist> &old_attrs,
+     map<string, boost::optional<bufferlist> > &old_attrs,
      ObjectStore::Transaction *t) { assert(0); }
 
    /// Rollback truncate

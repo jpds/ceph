@@ -27,7 +27,7 @@ struct RollbackVisitor : public ObjectModDesc::Visitor {
   void append(uint64_t old_size) {
     pg->rollback_append(hoid, old_size, t);
   }
-  void setattrs(map<string, bufferlist> &attrs) {
+  void setattrs(map<string, boost::optional<bufferlist> > &attrs) {
     pg->rollback_setattrs(hoid, attrs, t);
   }
   void rmobject(version_t old_version) {

@@ -18,6 +18,7 @@
 #include <sstream>
 #include <stdio.h>
 #include <memory>
+#include <boost/optional.hpp>
 
 #include "msg/msg_types.h"
 #include "include/types.h"
@@ -1496,7 +1497,7 @@ struct ObjectModDesc {
   class Visitor {
   public:
     virtual void append(uint64_t old_offset) = 0;
-    virtual void setattrs(map<string, bufferlist> &attrs) = 0;
+    virtual void setattrs(map<string, boost::optional<bufferlist> > &attrs) = 0;
     virtual void rmobject(version_t old_version) = 0;
     virtual void create() = 0;
     virtual ~Visitor() {}
@@ -1521,7 +1522,7 @@ struct ObjectModDesc {
     append_id(APPEND);
     ::encode(old_size, bl);
   }
-  void setattrs(map<string, bufferlist> &old_attrs) {
+  void setattrs(map<string, boost::optional<bufferlist> > &old_attrs) {
     if (!can_local_rollback)
       return;
     append_id(SETATTRS);
@@ -1665,6 +1666,9 @@ struct pg_log_t {
    */
   eversion_t head;    // newest entry
   eversion_t tail;    // version prior to oldest
+
+  // We can rollback rollback-able objects to can_rollback_to
+  eversion_t can_rollback_to;
 
   list<pg_log_entry_t> log;  // the actual log.
   

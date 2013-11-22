@@ -1995,7 +1995,7 @@ void ObjectModDesc::visit(Visitor *visitor) const
 	visitor->append(size);
       }
       case SETATTRS: {
-	map<string, bufferlist> attrs;
+	map<string, boost::optional<bufferlist> > attrs;
 	::decode(attrs, bp);
 	visitor->setattrs(attrs);
       }
@@ -2023,11 +2023,11 @@ struct DumpVisitor : public ObjectModDesc::Visitor {
     f->dump_unsigned("old_size", old_size);
     f->close_section();
   }
-  void setattrs(map<string, bufferlist> &attrs) {
+  void setattrs(map<string, boost::optional<bufferlist> > &attrs) {
     f->open_object_section("op");
     f->dump_string("code", "SETATTRS");
     f->open_array_section("attrs");
-    for (map<string, bufferlist>::iterator i = attrs.begin();
+    for (map<string, boost::optional<bufferlist> >::iterator i = attrs.begin();
 	 i != attrs.end();
 	 ++i) {
       f->dump_string("attr_name", i->first);
@@ -2062,7 +2062,7 @@ void ObjectModDesc::dump(Formatter *f) const
 
 void ObjectModDesc::generate_test_instances(list<ObjectModDesc*>& o)
 {
-  map<string, bufferlist> attrs;
+  map<string, boost::optional<bufferlist> > attrs;
   attrs[OI_ATTR];
   attrs[SS_ATTR];
   attrs["asdf"];
@@ -2255,10 +2255,11 @@ ostream& operator<<(ostream& out, const pg_log_entry_t& e)
 
 void pg_log_t::encode(bufferlist& bl) const
 {
-  ENCODE_START(4, 3, bl);
+  ENCODE_START(5, 3, bl);
   ::encode(head, bl);
   ::encode(tail, bl);
   ::encode(log, bl);
+  ::encode(can_rollback_to, bl);
   ENCODE_FINISH(bl);
 }
  
@@ -2272,6 +2273,8 @@ void pg_log_t::decode(bufferlist::iterator &bl, int64_t pool)
     ::decode(backlog, bl);
   }
   ::decode(log, bl);
+  if (struct_v >= 5)
+    ::decode(can_rollback_to, bl);
   DECODE_FINISH(bl);
 
   // handle hobject_t format change

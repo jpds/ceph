@@ -65,6 +65,7 @@ public:
     virtual void encode(bufferlist &bl) const = 0;
     virtual void decode(bufferlist::iterator& p) = 0;
     virtual void dump(Formatter *f) const = 0;
+    virtual Impl* clone() const = 0;
     /// optimize structure for a desired false positive probability
     virtual void optimize() {}
     virtual ~Impl() {}
@@ -184,8 +185,7 @@ public:
   HitSet(HitSet::Params *params);
 
   HitSet(const HitSet& o) {
-    // only allow copying empty instances... FIXME
-    assert(!o.impl);
+    impl.reset(o.impl->clone());
   }
 
   /// insert a hash into the set
@@ -244,6 +244,12 @@ public:
 
   ExplicitHashHitSet() : count(0) {}
   ExplicitHashHitSet(const ExplicitHashHitSet::Params *p) : count(0) {}
+  ExplicitHashHitSet(const ExplicitHashHitSet &o) : count(o.count),
+      hits(o.hits) {}
+
+  HitSet::Impl *clone() const {
+    return new ExplicitHashHitSet(*this);
+  }
 
   HitSet::impl_type_t get_type() const {
     return HitSet::TYPE_EXPLICIT_HASH;
@@ -311,6 +317,12 @@ public:
 
   ExplicitObjectHitSet() : count(0) {}
   ExplicitObjectHitSet(const ExplicitObjectHitSet::Params *p) : count(0) {}
+  ExplicitObjectHitSet(const ExplicitObjectHitSet &o) : count(o.count),
+      hits(o.hits) {}
+
+  HitSet::Impl *clone() const {
+    return new ExplicitObjectHitSet(*this);
+  }
 
   HitSet::impl_type_t get_type() const {
     return HitSet::TYPE_EXPLICIT_OBJECT;
@@ -432,6 +444,18 @@ public:
                                                     p->false_positive,
                                                     p->seed)
   {}
+
+  BloomHitSet(const BloomHitSet &o) {
+    // oh god
+    bufferlist bl;
+    o.encode(bl);
+    bufferlist::iterator bli = bl.begin();
+    this->decode(bli);
+  }
+
+  HitSet::Impl *clone() const {
+    return new BloomHitSet(*this);
+  }
 
   void insert(const hobject_t& o) {
     bloom.insert(o.hash);

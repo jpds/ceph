@@ -434,7 +434,8 @@ public:
   void optimize() {
     // aim for a density of .5 (50% of bit set)
     double pc = (double)bloom.density() * 2.0 * 100.0;
-    bloom.compress(pc);
+    if (pc < 100.0)
+      bloom.compress(pc);
   }
 
   void encode(bufferlist &bl) const {

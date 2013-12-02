@@ -87,7 +87,7 @@ TYPE(ExplicitHashHitSet)
 TYPE(ExplicitObjectHitSet)
 TYPE(BloomHitSet)
 TYPE(HitSet)
-TYPE(HitSet::Params::Decoder)
+TYPE(HitSet::Params)
 
 #include "os/ObjectStore.h"
 TYPE(ObjectStore::Transaction)

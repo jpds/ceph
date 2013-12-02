@@ -8564,12 +8564,12 @@ void ReplicatedPG::hit_set_create()
 {
   utime_t now = ceph_clock_now(NULL);
   // make a copy of the params to modify
-  boost::scoped_ptr<HitSet::Params> params(
-      HitSet::Params::create_copy(pool.info.hit_set_params.get_params()));
+  HitSet::Params *params = new HitSet::Params(pool.info.hit_set_params);
   uint64_t target_size = 0;
 
   if (pool.info.hit_set_params.get_type() == HitSet::TYPE_BLOOM) {
-    BloomHitSet::Params *p = params->get_as_type<BloomHitSet>();
+    BloomHitSet::Params *p =
+      static_cast<BloomHitSet::Params*>(params->impl.get());
 
     // convert false positive rate so it holds up across the full period
     p->false_positive = p->false_positive / pool.info.hit_set_count;
@@ -8593,7 +8593,7 @@ void ReplicatedPG::hit_set_create()
     dout(10) << __func__ << " target_size " << p->target_size
 	<< " fpp " << p->false_positive << dendl;
   }
-  hit_set.reset(new HitSet(params.get()));
+  hit_set.reset(new HitSet(params));
   hit_set_start_stats.reset(new pg_stat_t(info.stats));
   hit_set_start_stamp = now;
   info.hit_set.current_info = pg_hit_set_info_t(target_size, now);

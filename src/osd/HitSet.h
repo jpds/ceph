@@ -73,96 +73,41 @@ public:
   boost::scoped_ptr<Impl> impl;
 
   class Params {
-    impl_type_t type; ///< Type of HitSet
-    static void generate_test_instances(list<HitSet::Params*>& o);
-  protected:
-    Params(impl_type_t t) : type(t) {}
-    Params() : type(TYPE_NONE) {}
-    /**
-     * implementations must specify each of these functions, and include
-     * static const type_code member
-     */
+    /// create an Impl* of the given type
+    bool create_impl(impl_type_t t);
 
-    /// encode subtype-specific data. Default is empty but versioned
-    virtual void _encode_impl_bits(bufferlist &bl) const {
-      ENCODE_START(1, 1, bl);
-      ENCODE_FINISH(bl);
-    }
-    /// decode subtype-specific data. Default is empty but versioned
-    virtual void _decode_impl_bits(bufferlist::iterator &bl) {
-      DECODE_START(1, bl);
-      DECODE_FINISH(bl);
-    }
-    /// dump the subtype-specific data to an ostream
-    virtual void _dump_impl_stream(ostream& o) const {}
-    /// dump the subtype-specific data to a formatter
-    virtual void _dump_impl(Formatter *f) const {}
   public:
-    static const impl_type_t type_code = TYPE_NONE;
-    virtual ~Params() {}
-    impl_type_t get_type() const { return type; }
-    void dump(Formatter *f) const;
-    void encode(bufferlist &bl) const;
-
-    Params(const Params& o); // not implemented
-    Params& operator=(const Params& o); // not implemented
-    static Params *create_copy(const Params *p);
-
-    // no encode/decode tests on this type; use ParamsEncoder for that
-
-    /**
-     * Get a pointer of the proper subtype for this Params.
-     * @return pointer of proper type, or NULL if the Params object is not of
-     * the requested type.
-     */
-    template <typename T> typename T::Params* get_as_type() {
-      if (T::Params::type_code == get_type()) {
-	return static_cast< typename T::Params* >(this);
-      } else {
-	return NULL;
-      }
-    }
-
-    template <typename T> const typename T::Params* get_as_type() const {
-      if (T::Params::type_code == get_type()) {
-	return static_cast< const typename T::Params* >(this);
-      } else {
-	return NULL;
-      }
-    }
-
-    /**
-     * Use the Decoder to decode (and optionally encode) Params. By default
-     * it will delete the decode params when the Decoder is destroyed, but
-     * if you call extract_params() it will remove its reference entirely
-     * and the caller takes responsibility.
-     */
-    class Decoder {
-    private:
-      Params *params;
+    class Impl {
     public:
-      Decoder() : params(NULL) {}
-      Decoder(Params *p) : params(p) {}
-      ~Decoder() { delete params; }
-      void dump(Formatter *f) const { if (params) params->dump(f); }
-      void encode(bufferlist &bl) const {
-	Params *p = params;
-	if (!p)
-	  p = new HitSet::Params;
-	p->encode(bl);
-      }
-      void decode(bufferlist::iterator &bl);
-      static void generate_test_instances(list<Decoder *>& o);
-      impl_type_t get_type() const {
-	return (params ? params->type : TYPE_NONE);
-      }
-      /// get a read-only pointer to the params
-      const Params *get_params() const { return params; }
-      /// get a pointer to the params and remove it from Decoder's tracking
-      Params *extract_params() { return params; params = NULL; }
-      void reset_params(Params *p) { delete params; params = p; }
+      virtual impl_type_t get_type() const = 0;
+      virtual HitSet::Impl *get_new_impl() const = 0;
+      virtual void encode(bufferlist &bl) {}
+      virtual void decode(bufferlist::iterator& p) {}
+      virtual void dump(Formatter *f) const {}
+      virtual void dump_stream(ostream& o) const {}
+      virtual ~Impl() {}
     };
-    friend class Decoder;
+
+    Params() {}
+    Params(Impl *i) : impl(i) {}
+    virtual ~Params() {}
+
+    boost::scoped_ptr<Params::Impl> impl;
+
+    impl_type_t get_type() const {
+      if (impl)
+	return impl->get_type();
+      return TYPE_NONE;
+    }
+
+    Params(const Params& o);
+    const Params& operator=(const Params& o);
+
+    void encode(bufferlist &bl) const;
+    void decode(bufferlist::iterator &bl);
+    void dump(Formatter *f) const;
+    static void generate_test_instances(list<HitSet::Params*>& o);
+
     friend ostream& operator<<(ostream& out, const HitSet::Params& p);
   };
 
@@ -174,6 +119,7 @@ public:
     // only allow copying empty instances... FIXME
     assert(!o.impl);
   }
+  const HitSet& operator=(const HitSet&);  // not implemented
 
   /// insert a hash into the set
   void insert(const hobject_t& o) {
@@ -204,10 +150,7 @@ private:
   void reset_to_type(impl_type_t type);
 };
 WRITE_CLASS_ENCODER(HitSet);
-inline void encode(const HitSet::Params &p, bufferlist &bl, uint64_t features=0) {
-  ENCODE_DUMP_PRE(); p.encode(bl); ENCODE_DUMP_POST(p);
-}
-WRITE_CLASS_ENCODER(HitSet::Params::Decoder);
+WRITE_CLASS_ENCODER(HitSet::Params);
 
 ostream& operator<<(ostream& out, const HitSet::Params& p);
 
@@ -218,14 +161,13 @@ class ExplicitHashHitSet : public HitSet::Impl {
   uint64_t count;
   hash_set<uint32_t> hits;
 public:
-  class Params : public HitSet::Params {
+  class Params : public HitSet::Params::Impl {
   public:
-    static const HitSet::impl_type_t type_code = HitSet::TYPE_EXPLICIT_HASH;
-    Params() : HitSet::Params(type_code) {}
-    Params(const Params &o) : HitSet::Params(type_code) {}
-    ~Params() {}
-    static void generate_test_instances(list<Params*>& o) {
-      o.push_back(new Params);
+    virtual HitSet::impl_type_t get_type() const {
+      return HitSet::TYPE_EXPLICIT_HASH;
+    }
+    virtual HitSet::Impl *get_new_impl() const {
+      return new ExplicitHashHitSet;
     }
   };
 
@@ -284,15 +226,13 @@ class ExplicitObjectHitSet : public HitSet::Impl {
   uint64_t count;
   hash_set<hobject_t> hits;
 public:
-  class Params : public HitSet::Params {
+  class Params : public HitSet::Params::Impl {
   public:
-    static const HitSet::impl_type_t type_code = HitSet::TYPE_EXPLICIT_OBJECT;
-    Params() : HitSet::Params(type_code) {}
-    Params(const Params &o) : HitSet::Params(type_code) {}
-    ~Params() {}
-
-    static void generate_test_instances(list<Params*>& o) {
-      o.push_back(new Params);
+    virtual HitSet::impl_type_t get_type() const {
+      return HitSet::TYPE_EXPLICIT_OBJECT;
+    }
+    virtual HitSet::Impl *get_new_impl() const {
+      return new ExplicitObjectHitSet;
     }
   };
 
@@ -358,23 +298,28 @@ public:
     return HitSet::TYPE_BLOOM;
   }
 
-  class Params : public HitSet::Params {
+  class Params : public HitSet::Params::Impl {
   public:
-    static const HitSet::impl_type_t type_code = HitSet::TYPE_BLOOM;
+    virtual HitSet::impl_type_t get_type() const {
+      return HitSet::TYPE_BLOOM;
+    }
+    virtual HitSet::Impl *get_new_impl() const {
+      return new BloomHitSet;
+    }
 
     double false_positive; ///< false positive probability
-    uint64_t target_size; ///< number of unique insertions we expect to this HitSet
-    uint64_t seed; ///< seed to use when initializing the bloom filter
+    uint64_t target_size;  ///< number of unique insertions we expect to this HitSet
+    uint64_t seed;         ///< seed to use when initializing the bloom filter
 
     Params() : false_positive(0), target_size(0), seed(0) {}
-    Params(double fpp, uint64_t t, uint64_t s) :
-      HitSet::Params(HitSet::TYPE_BLOOM),
-      false_positive(fpp), target_size(t), seed(s) {}
-    Params(const Params &o) : HitSet::Params(type_code),
-	false_positive(o.false_positive),
+    Params(double fpp, uint64_t t, uint64_t s)
+      : false_positive(fpp), target_size(t), seed(s) {}
+    Params(const Params &o)
+      : false_positive(o.false_positive),
 	target_size(o.target_size), seed(o.seed) {}
     ~Params() {}
-    void _encode_impl_bits(bufferlist& bl) const {
+
+    void encode(bufferlist& bl) const {
       ENCODE_START(1, 1, bl);
       uint16_t fpp_micro = static_cast<uint16_t>(false_positive * 1000000.0);
       ::encode(fpp_micro, bl);
@@ -382,7 +327,7 @@ public:
       ::encode(seed, bl);
       ENCODE_FINISH(bl);
     }
-    void _decode_impl_bits(bufferlist::iterator& bl) {
+    void decode(bufferlist::iterator& bl) {
       DECODE_START(1, bl);
       uint16_t fpp_micro;
       ::decode(fpp_micro, bl);
@@ -391,12 +336,12 @@ public:
       ::decode(seed, bl);
       DECODE_FINISH(bl);
     }
-    void _dump_impl(Formatter *f) const {
+    void dump(Formatter *f) const {
       f->dump_int("false_positive_probability", false_positive);
       f->dump_int("target_size", target_size);
       f->dump_int("seed", seed);
     }
-    void _dump_impl_stream(ostream& o) const {
+    void dump_stream(ostream& o) const {
       o << "false_positive_probability: "
 	<< false_positive << ", target size: " << target_size
 	<< ", seed: " << seed;

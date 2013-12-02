@@ -710,7 +710,7 @@ void pg_pool_t::dump(Formatter *f) const
   }
   f->close_section();
   f->open_object_section("hit_set_params");
-  hit_set_params.get_params()->dump(f);
+  hit_set_params.dump(f);
   f->close_section(); // hit_set_params
   f->dump_unsigned("hit_set_period", hit_set_period);
   f->dump_unsigned("hit_set_count", hit_set_count);
@@ -1092,7 +1092,7 @@ void pg_pool_t::generate_test_instances(list<pg_pool_t*>& o)
   a.write_tier = 1;
   a.properties["p-1"] = "v-1";
   a.properties["empty"] = string();
-  a.hit_set_params.reset_params(new BloomHitSet::Params);
+  a.hit_set_params = HitSet::Params(new BloomHitSet::Params);
   a.hit_set_period = 3600;
   a.hit_set_count = 8;
   o.push_back(new pg_pool_t(a));
@@ -1128,7 +1128,7 @@ ostream& operator<<(ostream& out, const pg_pool_t& p)
   if (p.cache_mode)
     out << " cache_mode " << p.get_cache_mode_name();
   if (p.hit_set_params.get_type() != HitSet::TYPE_NONE) {
-    out << " hit_set (" << *(p.hit_set_params.get_params())
+    out << " hit_set (" << p.hit_set_params
 	<< ") " << p.hit_set_period << "s"
 	<< " x" << p.hit_set_count;
   }

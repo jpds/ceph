@@ -817,7 +817,7 @@ public:
   bool has_write_tier() const { return write_tier >= 0; }
   void clear_write_tier() { write_tier = -1; }
 
-  HitSet::Params::Decoder hit_set_params; ///< The HitSet params to use on this pool
+  HitSet::Params hit_set_params; ///< The HitSet params to use on this pool
   uint32_t hit_set_period;      ///< periodicity of HitSet segments (seconds)
   uint32_t hit_set_count;       ///< number of periods to retain
 

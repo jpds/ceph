@@ -156,7 +156,7 @@ TEST(LibRadosMisc, HitSetRead) {
   }
 
   // get HitSets
-  std::map<int,HitSet> hitsets;
+  std::map<int,HitSet*> hitsets;
   for (int i=0; i<num_pg; ++i) {
     list< pair<time_t,time_t> > ls;
     AioCompletion *c = librados::Rados::aio_create_completion();
@@ -178,7 +178,8 @@ TEST(LibRadosMisc, HitSetRead) {
     //std::cout << std::endl;
 
     bufferlist::iterator p = bl.begin();
-    ::decode(hitsets[i], p);
+    hitsets[i] = new HitSet;
+    ::decode(*hitsets[i], p);
   }
 
   for (int i=0; i<1000; ++i) {
@@ -189,7 +190,7 @@ TEST(LibRadosMisc, HitSetRead) {
     std::cout << "checking for " << oid << ", should be in pg " << pg << std::endl;
     bool found = false;
     for (int p=0; p<num_pg; ++p) {
-      if (hitsets[p].contains(oid)) {
+      if (hitsets[p]->contains(oid)) {
 	found = true;
 	break;
       }

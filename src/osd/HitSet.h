@@ -115,10 +115,7 @@ public:
   HitSet(Impl *i) : impl(i) {}
   HitSet(HitSet::Params *params);
 
-  HitSet(const HitSet& o) {
-    // only allow copying empty instances... FIXME
-    assert(!o.impl);
-  }
+  HitSet(const HitSet&);                   // not implemented
   const HitSet& operator=(const HitSet&);  // not implemented
 
   /// insert a hash into the set

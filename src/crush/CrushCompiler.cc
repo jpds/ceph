@@ -256,6 +256,10 @@ int CrushCompiler::decompile(ostream &out)
       case CRUSH_RULE_EMIT:
 	out << "\tstep emit\n";
 	break;
+      case CRUSH_RULE_SET_CHOOSE_LEAF_TRIES:
+	out << "\tstep set_chooseleaf_tries " << crush.get_rule_arg1(i, j)
+	    << "\n";
+	break;
       case CRUSH_RULE_CHOOSE_FIRSTN:
 	out << "\tstep choose firstn "
 	    << crush.get_rule_arg1(i, j) 
@@ -597,6 +601,13 @@ int CrushCompiler::parse_rule(iter_t const& i)
 	  return -1;
 	}
 	crush.set_rule_step_take(ruleno, step++, item_id[item]);
+      }
+      break;
+
+    case crush_grammar::_step_set_chooseleaf_tries:
+      {
+	int val = int_node(i->children[2]);
+	crush.set_rule_step_set_chooseleaf_tries(ruleno, step++, val);
       }
       break;
 
